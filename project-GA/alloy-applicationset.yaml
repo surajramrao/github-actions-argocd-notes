@@ -1,0 +1,121 @@
+apiVersion: argoproj.io/v1alpha1                  # Argo CD API version for an ApplicationSet.
+kind: ApplicationSet                               # Tells Argo CD: "generate Applications from a template".
+metadata:
+  name: alloy                                      # Name of this ApplicationSet; YOU choose the name.
+  namespace: argocd                                # ApplicationSet controller watches it in Argo CD namespace.
+
+spec:
+  goTemplate: true                                 # Enables Go templating syntax such as {{ .name }} and {{ .server }}.
+                                                    # This is an ApplicationSet feature, not a Helm feature.
+
+  goTemplateOptions:                               # Controls how Go templates behave.
+    - missingkey=error                              # Fail generation instead of silently producing empty values
+                                                    # when a referenced template variable does not exist.
+
+  generators:                                      # Defines HOW the ApplicationSet discovers what Applications to create.
+    - clusters:                                    # Use Argo CD's Cluster Generator.
+                                                    # It looks at clusters already registered in Argo CD.
+
+        selector:                                  # Filter which registered clusters should receive Alloy.
+          matchLabels:                             # Match labels on Argo CD's registered cluster Secret.
+            observability: "enabled"              # Only clusters having observability=enabled are selected.
+
+                                                    # Example:
+                                                    #
+                                                    # DEV cluster Secret:
+                                                    # observability=enabled
+                                                    #
+                                                    # STAGE cluster Secret:
+                                                    # observability=enabled
+                                                    #
+                                                    # PROD cluster Secret:
+                                                    # observability=enabled
+                                                    #
+                                                    # Then all 3 are selected.
+                                                    #
+                                                    # A cluster without this label is ignored.
+
+  template:                                        # Template for every Application the generator creates.
+    metadata:
+      name: 'alloy-{{ .nameNormalized }}'           # Generated Application name.
+                                                    # .nameNormalized comes from the Argo CD registered cluster Secret.
+                                                    #
+                                                    # Example:
+                                                    # cluster name = dev-eks
+                                                    # generated Application = alloy-dev-eks
+                                                    #
+                                                    # nameNormalized is used because Kubernetes names have character
+                                                    # restrictions.
+
+    spec:
+      project: observability                        # References the AppProject created above.
+                                                    # THIS is the connection:
+                                                    #
+                                                    # ApplicationSet
+                                                    #       ↓
+                                                    # generated Application
+                                                    #       ↓
+                                                    # project: observability
+                                                    #       ↓
+                                                    # AppProject security rules
+
+      source:                                      # Defines WHERE the desired Kubernetes manifests/Helm chart come from.
+        repoURL: https://github.com/YOUR_ORG/observability.git
+                                                    # Same GitOps repository allowed by sourceRepos in AppProject.
+                                                    # The Project must permit this repository.
+
+        targetRevision: main                        # Git revision to use.
+                                                    # Here: main branch.
+                                                    # Could later be a tag/commit depending on your GitOps strategy.
+
+        path: observability/alloy                   # Directory inside the Git repository containing the Alloy Helm source
+                                                    # or Helm-related files we want Argo CD to render.
+                                                    #
+                                                    # This path is YOUR repository structure.
+                                                    # It is not an Argo CD keyword with a predefined value.
+
+        helm:                                      # Tell Argo CD to render the source using Helm.
+          releaseName: alloy                       # Helm release name.
+                                                    # YOU choose this.
+                                                    # Important: Argo CD itself performs reconciliation;
+                                                    # Helm is used here primarily for rendering the chart.
+
+          valueFiles:                              # Helm values files used during rendering.
+            - values.yaml                           # Path relative to the Helm source path.
+                                                    #
+                                                    # Meaning:
+                                                    # Git repo
+                                                    #   └── observability/alloy/
+                                                    #        └── values.yaml
+
+      destination:                                  # Defines WHERE this generated Application deploys.
+        server: '{{ .server }}'                     # TARGET CLUSTER.
+                                                    # .server comes from the Argo CD registered cluster Secret.
+                                                    #
+                                                    # Therefore:
+                                                    #
+                                                    # DEV cluster selected
+                                                    #      ↓
+                                                    # .server = DEV EKS API URL
+                                                    #
+                                                    # STAGE selected
+                                                    #      ↓
+                                                    # .server = STAGE EKS API URL
+                                                    #
+                                                    # PROD selected
+                                                    #      ↓
+                                                    # .server = PROD EKS API URL
+
+        namespace: alloy                            # TARGET NAMESPACE inside whichever cluster was selected.
+                                                    # Same namespace for all three environments.
+
+      syncPolicy:                                  # Controls how Argo CD synchronizes generated Applications.
+        automated:                                 # Enable automated reconciliation.
+          prune: true                              # Delete Kubernetes resources that are removed from Git.
+                                                    # Git says "this should no longer exist" → Argo CD removes it.
+
+          selfHeal: true                            # If someone manually changes the live cluster,
+                                                    # Argo CD brings it back to Git's desired state.
+
+        syncOptions:                               # Additional Argo CD sync behavior.
+          - CreateNamespace=true                    # Create "alloy" namespace automatically if it does not exist.
