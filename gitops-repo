@@ -1,0 +1,116 @@
+                    ┌──────────────────────┐
+                    │   Developer / GitHub  │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │      Jenkins CI      │
+                    │----------------------│
+                    │ Maven / Tests        │
+                    │ SonarQube            │
+                    │ Trivy                │
+                    │ Docker Build          │
+                    │ Push → ECR            │
+                    └──────────┬───────────┘
+                               │
+                      update image digest
+                               │
+                               ▼
+                 ┌──────────────────────────┐
+                 │      GitOps Repository   │
+                 │                          │
+                 │ AppProjects              │
+                 │ ApplicationSets          │
+                 │ Environment values       │
+                 │ Platform values          │
+                 └────────────┬─────────────┘
+                              │
+                              ▼
+                    ┌────────────────────┐
+                    │   Central Argo CD  │
+                    │                    │
+                    │ ApplicationSet     │
+                    │ Controller         │
+                    │ Repo Server        │
+                    │ Application Ctrl   │
+                    └─────────┬──────────┘
+                              │
+            ┌─────────────────┼─────────────────┐
+            │                 │                 │
+            ▼                 ▼                 ▼
+         Dev EKS          Stage EKS         Prod EKS
+
+------------------------------------------------------------------------
+company-gitops/
+│
+├── README.md
+│
+├── argocd/
+│   │
+│   ├── projects/
+│   │   ├── dev-project.yaml
+│   │   ├── stage-project.yaml
+│   │   └── prod-project.yaml
+│   │
+│   └── applicationsets/
+│       ├── dev-applicationset.yaml
+│       ├── stage-applicationset.yaml
+│       └── prod-applicationset.yaml
+│
+├── charts/
+│   │
+│   └── microservice/
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       │
+│       └── templates/
+│           ├── _helpers.tpl
+│           ├── deployment.yaml
+│           ├── service.yaml
+│           ├── serviceaccount.yaml
+│           ├── ingress.yaml
+│           ├── hpa.yaml
+│           ├── pdb.yaml
+│           ├── configmap.yaml
+│           └── networkpolicy.yaml
+│
+├── environments/
+│   │
+│   ├── dev/
+│   │   ├── payment/
+│   │   │   └── values.yaml
+│   │   ├── order/
+│   │   │   └── values.yaml
+│   │   └── user/
+│   │       └── values.yaml
+│   │
+│   ├── stage/
+│   │   ├── payment/
+│   │   │   └── values.yaml
+│   │   ├── order/
+│   │   │   └── values.yaml
+│   │   └── user/
+│   │       └── values.yaml
+│   │
+│   └── prod/
+│       ├── payment/
+│       │   └── values.yaml
+│       ├── order/
+│       │   └── values.yaml
+│       └── user/
+│           └── values.yaml
+│
+└── platform/
+    ├── ingress-nginx/
+    ├── external-secrets/
+    ├── cert-manager/
+    ├── kube-prometheus-stack/
+    ├── karpenter/
+    └── aws-load-balancer-controller/
+
+
+ApplicationSets generate the individual Argo CD Applications; we don't manually maintain one Application manifest per microservice.”
+
+“Helm is used by Argo CD primarily for manifest rendering. Argo CD's repository server runs the Helm rendering process, and the Application Controller reconciles the rendered desired state against the Kubernetes cluster.”
+
+“Jenkins builds and scans the container, pushes an immutable image to ECR, and updates the environment-specific GitOps values through a Git change. We promote the same image digest from Dev to Stage to Production using pull requests rather than rebuilding the artifact.”
