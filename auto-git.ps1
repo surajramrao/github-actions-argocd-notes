@@ -28,8 +28,12 @@ while ($true) {
 
         git push origin main
 
-        Write-Host "Push completed!" -ForegroundColor Green
-        Write-Host ""
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Push completed successfully!" -ForegroundColor Green
+            }
+            else {
+                Write-Host "Push FAILED!" -ForegroundColor Red
+            }
     }
 
     Start-Sleep -Seconds 5
