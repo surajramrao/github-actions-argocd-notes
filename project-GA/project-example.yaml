@@ -1,0 +1,75 @@
+apiVersion: argoproj.io/v1alpha1                  # Argo CD API version for an AppProject; comes from the Argo CD CRD.
+kind: AppProject                                   # Declares an Argo CD Project; this is the security/governance boundary.
+metadata:
+  name: observability                              # Project name; YOU choose this name.
+  namespace: argocd                                # AppProject is created in Argo CD's namespace; normally "argocd".
+  finalizers:                                      # Kubernetes/Argo CD finalizer controls safe deletion.
+    - resources-finalizer.argocd.argoproj.io       # Prevents deleting the project while Applications still reference it.
+
+spec:
+  description: >-                                  # Human-readable purpose of this Project.
+    Observability platform for DEV, STAGE and PROD EKS clusters.
+
+  sourceRepos:                                     # Git repositories this Project's Applications are allowed to use.
+    - https://github.com/YOUR_ORG/observability.git
+                                                    # YOUR GitOps repository.
+                                                    # Comes from your GitHub organization/repository.
+                                                    # This is a security boundary: Apps in this Project cannot use
+                                                    # an unapproved repository.
+
+  destinations:                                    # Defines WHERE Applications in this Project may deploy.
+                                                    # Think: cluster + namespace.
+    - server: https://DEV-EKS-API-SERVER           # Kubernetes API endpoint of DEV EKS.
+      namespace: alloy                              # Only the "alloy" namespace is allowed in DEV.
+                                                    # DEV-EKS-API-SERVER comes from the cluster registered in Argo CD.
+                                                    # You can see it with: argocd cluster list
+
+    - server: https://STAGE-EKS-API-SERVER         # Kubernetes API endpoint of STAGE EKS.
+      namespace: alloy                              # Alloy is allowed only in the "alloy" namespace.
+
+    - server: https://PROD-EKS-API-SERVER          # Kubernetes API endpoint of PROD EKS.
+      namespace: alloy                              # Alloy is allowed only in the "alloy" namespace.
+
+                                                    # Mental model:
+                                                    # server    = WHICH Kubernetes/EKS cluster?
+                                                    # namespace = WHERE inside that cluster?
+
+  clusterResourceWhitelist:                        # Allows only these CLUSTER-SCOPED Kubernetes resources.
+                                                    # These are resources that are not inside a namespace.
+    - group: ""                                     # Core Kubernetes API group; "" means core group.
+      kind: Namespace                               # Allows Argo CD/Helm to create the "alloy" namespace.
+
+    - group: rbac.authorization.k8s.io              # Kubernetes RBAC API group.
+      kind: ClusterRole                             # Allows the Alloy Helm chart to create a ClusterRole.
+
+    - group: rbac.authorization.k8s.io              # Same RBAC API group.
+      kind: ClusterRoleBinding                      # Allows the Alloy Helm chart to bind its ClusterRole.
+
+                                                    # Why whitelist?
+                                                    # Without resource restrictions, the Project could potentially
+                                                    # deploy many cluster-scoped resource types.
+                                                    # We give this Project only what the Alloy deployment requires.
+
+  namespaceResourceWhitelist:                      # Allows only these NAMESPACE-SCOPED Kubernetes resources.
+                                                    # These resources live inside "alloy" namespace.
+    - group: ""                                     # Core Kubernetes API group.
+      kind: ConfigMap                               # Alloy configuration is stored in a ConfigMap.
+
+    - group: ""                                     # Core Kubernetes API group.
+      kind: Service                                 # Internal ClusterIP Service for Alloy.
+
+    - group: ""                                     # Core Kubernetes API group.
+      kind: ServiceAccount                          # Identity used by Alloy inside Kubernetes.
+
+    - group: apps                                   # apps API group.
+      kind: DaemonSet                               # Alloy will run as a DaemonSet: one collector per node.
+
+    - group: ""                                     # Core Kubernetes API group.
+      kind: Secret                                  # Included only if the deployed chart/config actually requires one.
+
+                                                    # Mental model:
+                                                    # clusterResourceWhitelist
+                                                    #     = what cluster-level objects may be created?
+                                                    #
+                                                    # namespaceResourceWhitelist
+                                                    #     = what namespace-level objects may be created?
