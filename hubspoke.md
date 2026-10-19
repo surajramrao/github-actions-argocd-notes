@@ -219,3 +219,13 @@ If you need any adjustments to help clean this up, let me know:
 
 
 
+
+eksctl create cluster \
+  --name my-cluster \
+  --region ap-south-1 \
+  --nodegroup-name standard-workers \
+  --node-type c7i-flex.large \
+  --nodes 1 \
+  --nodes-min 1 \
+  --nodes-max 1 \
+  --managed

@@ -1,3 +1,4 @@
+```yaml
                     ┌──────────────────────┐
                     │   Developer / GitHub  │
                     └──────────┬───────────┘
@@ -114,3 +115,4 @@ ApplicationSets generate the individual Argo CD Applications; we don't manually 
 “Helm is used by Argo CD primarily for manifest rendering. Argo CD's repository server runs the Helm rendering process, and the Application Controller reconciles the rendered desired state against the Kubernetes cluster.”
 
 “Jenkins builds and scans the container, pushes an immutable image to ECR, and updates the environment-specific GitOps values through a Git change. We promote the same image digest from Dev to Stage to Production using pull requests rather than rebuilding the artifact.”
+```
